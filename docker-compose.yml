@@ -1,16 +1,16 @@
-﻿services:
-  api:
-    build: ./
-    container_name: book-stories-api
-    ports:
-      - "${PORT_BY_OPTION}:8016"
-    environment:
-      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
-    volumes:
-      - ./appsettings.Production.json:/app/appsettings.Production.json:ro
-      - ./book-stories-data:/app/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8016/api/config || exit 1"]
-      interval: 10s
-      timeout: 3s
-      retries: 2
+﻿services: # Начало описания сервисов, которые будут запущены (только апи)
+  api: # Имя сервиса (нашего апи)
+    image: kitenakitkat/book-stories-api:1.0 # Docker-образ для создания контейнера
+    container_name: book-stories-api # Имя контейнера
+    ports: # Проброс портов "хост:контейнер"
+      - "${PORT_BY_OPTION}:8016" # ${PORT_BY_OPTION} - переменная окружения в .env
+    environment: # Переменные окружения внутри контейнера
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT} # определяет конфигурацию приложения
+    volumes: # Монтирование томов (проброс файлов и папок с хоста в контейнер)
+      - ./appsettings.Production.json:/app/appsettings.Production.json:ro # Подключаем файл настроек для Production окружения
+      - ./book-stories-data:/app/data # Подключаем папку для постоянного хранения данных приложения
+    healthcheck: # Проверка здоровья контейнера (используется Docker для мониторинга состояния)
+      test: ["CMD-SHELL", "curl -f http://localhost:8016/api/config || exit 1"] # отправляет HTTP GET запрос к API
+      interval: 10s # Как часто проверять здоровье (каждые 10 секунд)
+      timeout: 3s # Максимальное время ожидания ответа (3 секунды)
+      retries: 2 # Количество неудачных попыток для признания контейнера unhealthy
