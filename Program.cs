@@ -1,41 +1,76 @@
+using BookStories.Data;
+using BookStories.Services;
+using BookStories.Models;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddScoped<IBookStoryService, BookStoryService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+using (var scope = app.Services.CreateScope())
 {
-    app.MapOpenApi();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.EnsureCreated(); 
 }
 
-app.UseHttpsRedirection();
 
-var summaries = new[]
+app.MapGet("/api/config", (IConfiguration config) =>
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
+    return Results.Json(new
     {
-        var forecast = Enumerable.Range(1, 5).Select(index =>
-                new WeatherForecast
-                (
-                    DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                    Random.Shared.Next(-20, 55),
-                    summaries[Random.Shared.Next(summaries.Length)]
-                ))
-            .ToArray();
-        return forecast;
-    })
-    .WithName("GetWeatherForecast");
+        AppName = config["AppSettings:AppName"],
+        Version = config["AppSettings:Version"],
+        ConnectionStringName = "DefaultConnection"
+    });
+});
+
+app.MapGet("/api/stories", async (IBookStoryService service) =>
+{
+    var stories = await service.GetAllSortedByRatingDesc();
+    
+    var result = stories.Select(s => new 
+    { 
+        s.Id, 
+        s.BookInfo, 
+        s.Author, 
+        s.Rating 
+    });
+
+    return Results.Json(result);
+});
+
+app.MapGet("/api/stories/{id}", async (int id, IBookStoryService service) =>
+{
+    var story = await service.GetById(id);
+    if (story == null) return Results.NotFound();
+    
+    return Results.Json(story);
+});
+
+app.MapPost("/api/stories", async (BookStory story, IBookStoryService service) =>
+{
+    try
+    {
+        var created = await service.Create(story);
+        return Results.Created($"/api/stories/{created.Id}", created);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+
+app.MapDelete("/api/stories/{id}", async (int id, IBookStoryService service) =>
+{
+    var deleted = await service.Delete(id);
+    if (!deleted) return Results.NotFound();
+    
+    return Results.NoContent(); 
+});
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
