@@ -1,0 +1,16 @@
+﻿services:
+  api:
+    build: ./
+    container_name: book-stories-api
+    ports:
+      - "${PORT_BY_OPTION}:8016"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+    volumes:
+      - ./appsettings.Production.json:/app/appsettings.Production.json:ro
+      - ./book-stories-data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8016/api/config || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 2
